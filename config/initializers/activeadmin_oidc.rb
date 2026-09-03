@@ -53,5 +53,29 @@ if File.exist?(oidc_config_path)
       admin_user.enabled = true if admin_user.new_record?
       true
     end
+
+    # Development stub login (see config/oidc.yml.distr). The login page
+    # keeps its single button, but it signs in with the claims fabricated
+    # below instead of redirecting to the IdP — for machines whose redirect
+    # URI the IdP does not know (a non-default port, or two apps sharing one
+    # OIDC client). The claims still go through the same provisioning path
+    # and `on_login` above as a real callback, including the role check —
+    # the stub claims carry no roles claim, so `default_roles` above must
+    # still resolve to a real yeti-web role for the stub login to succeed
+    # (the shipped .distr's `default_roles: [root]` already covers it).
+    # `stub_dev_env_login!` is a no-op outside the development environment,
+    # so the key is harmless if it survives into another env's config.
+    if (stub = oidc_yaml['stub_login']).present?
+      stub_username = stub['username'].presence || 'dev'
+      stub_email = stub['email'].presence || "#{stub_username}@example.com"
+
+      c.stub_dev_env_login! do |claims|
+        claims.merge(
+          'sub' => "stub-#{stub_username}",
+          c.identity_claim.to_s => stub_username,
+          'email' => stub_email
+        )
+      end
+    end
   end
 end
