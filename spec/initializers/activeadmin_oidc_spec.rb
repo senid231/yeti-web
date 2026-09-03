@@ -31,7 +31,11 @@ RSpec.describe 'config/initializers/activeadmin_oidc.rb' do
       attr_accessor :issuer, :client_id, :client_secret, :scope,
                     :redirect_uri,
                     :identity_attribute, :identity_claim, :admin_user_class,
-                    :on_login
+                    :on_login, :stub_dev_env_login_block
+
+      def stub_dev_env_login!(&block)
+        self.stub_dev_env_login_block = block
+      end
     end.new
     allow(ActiveAdmin::Oidc).to receive(:configure).and_yield(captured)
 
@@ -131,6 +135,60 @@ RSpec.describe 'config/initializers/activeadmin_oidc.rb' do
 
       it 'returns true on the happy path' do
         expect(configured.on_login.call(admin_user, 'email' => 'x@y')).to be(true)
+      end
+    end
+
+    it 'does not enable the stub login when config/oidc.yml has no stub_login key' do
+      expect(configured.stub_dev_env_login_block).to be_nil
+    end
+
+    context 'with a stub_login key' do
+      let(:yaml_body) do
+        <<~YAML
+          test:
+            issuer: https://idp.example.com
+            client_id: test-client
+            identity_claim: preferred_username
+            default_roles:
+              - admin
+            stub_login:
+              username: alice
+              email: alice@example.com
+        YAML
+      end
+
+      it 'builds claims from the configured username/email under identity_claim' do
+        claims = configured.stub_dev_env_login_block.call({})
+        expect(claims).to eq(
+          'sub' => 'stub-alice',
+          'preferred_username' => 'alice',
+          'email' => 'alice@example.com'
+        )
+      end
+
+      context 'with blank username/email' do
+        let(:yaml_body) do
+          <<~YAML
+            test:
+              issuer: https://idp.example.com
+              client_id: test-client
+              identity_claim: preferred_username
+              default_roles:
+                - admin
+              stub_login:
+                username:
+                email:
+          YAML
+        end
+
+        it 'defaults username to "dev" and email to "dev@example.com"' do
+          claims = configured.stub_dev_env_login_block.call({})
+          expect(claims).to eq(
+            'sub' => 'stub-dev',
+            'preferred_username' => 'dev',
+            'email' => 'dev@example.com'
+          )
+        end
       end
     end
 

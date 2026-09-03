@@ -30,6 +30,17 @@ development: &default
   roles_claim: roles
   default_roles:
     - root
+  # Stub login — development only, off unless this key is present.
+  # The login page keeps its single button, but it signs you in locally with
+  # the claims below instead of redirecting to the IdP. Use it when the IdP
+  # does not know your redirect URI (a non-default port, or two apps sharing
+  # one client). Both sub-keys are optional; username defaults to "dev" and
+  # email to "<username>@example.com". The stub claims carry no roles, so
+  # `default_roles` above (root, by default) is what grants the stub user
+  # access — keep it pointed at a real role. Uncomment to turn it on.
+  # stub_login:
+  #   username: "dev"
+  #   email: "dev@example.com"
 
 test:
   <<: *default
